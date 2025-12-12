@@ -1,16 +1,17 @@
-import { View, Text } from "react-native";
-import { Link } from "expo-router";
-export default function Home() {
-  return (
-    <View>
-      <Text>Accueil</Text>
-      <Link href="/src/screens/BookScreen/BookScreen" asChild>
-        <Text>Bookpage</Text>
-      </Link>
-      <Link href="/src/screens/Search/Search" asChild>
-        <Text>Searchpage</Text>
-      </Link>
+import { useEffect } from "react";
+import { View } from "react-native";
+import { useRouter } from "expo-router";
+import { useAuth } from "./context/AuthContext";
 
-    </View>
-  );
+export default function Home() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (user) router.replace("/foryou");
+    else router.replace("/(auth)/signup");
+  }, [user, isLoading]);
+
+  return <View />;
 }
