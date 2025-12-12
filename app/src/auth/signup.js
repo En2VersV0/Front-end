@@ -1,4 +1,3 @@
-// app/(auth)/signup.js
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,14 +9,19 @@ export default function Signup() {
     const [loading, setLoading] = useState(false);
     const { signup } = useAuth();
 
-    // Données du formulaire
     const [formData, setFormData] = useState({
-        pseudo: '',
+        fullname: '',
+        username: '',
         email: '',
         password: '',
         confirmPassword: '',
         favoriteGenres: [],
-        favoriteBook: '',
+        firstBookTitle: '',
+        firstBookAuthor: '',
+        secondBookTitle: '',
+        secondBookAuthor: '',
+        birth: '',
+        genre: '',
     });
 
     const handleGenreToggle = (genre) => {
@@ -32,18 +36,40 @@ export default function Signup() {
     const handleSubmit = async () => {
         setLoading(true);
         try {
-            await signup({
-                pseudo: formData.pseudo,
-                email: formData.email,
-                password: formData.password,
-                favoriteGenres: formData.favoriteGenres,
-                favoriteBook: formData.favoriteBook,
-            });
+            await signup(formData);
         } catch (error) {
             Alert.alert('Erreur', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const isValidEmail = (email) => /.+@.+\..+/.test(email);
+
+    const handleNextFromStep1 = () => {
+        if (!formData.fullname.trim()) return Alert.alert('Info manquante', 'Ton nom complet est requis.');
+        if (!formData.username.trim() || formData.username.length < 5)
+            return Alert.alert("Nom d'utilisateur", "Le nom d'utilisateur doit contenir au moins 5 caractères.");
+        if (!formData.email.trim() || !isValidEmail(formData.email))
+            return Alert.alert('Email invalide', "Merci d'indiquer un email valide.");
+        if (!formData.password || formData.password.length < 6)
+            return Alert.alert('Mot de passe', 'Le mot de passe doit contenir au moins 6 caractères.');
+        if (formData.password !== formData.confirmPassword)
+            return Alert.alert('Mot de passe', 'Les mots de passe ne correspondent pas.');
+        setStep(2);
+    };
+
+    const handleNextFromStep2 = () => {
+        if (formData.favoriteGenres.length < 3) {
+            return Alert.alert('Sélectionne des genres', 'Choisis au moins 3 genres pour continuer.');
+        }
+        setStep(3);
+    };
+
+    const handleNextFromStep3 = () => {
+        if (!formData.firstBookTitle.trim())
+            return Alert.alert('Livre requis', 'Indique au moins un premier livre favori.');
+        setStep(4);
     };
 
     const renderStep = () => {
@@ -54,9 +80,15 @@ export default function Signup() {
                         <Text style={styles.title}>Créer un compte</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Pseudo"
-                            value={formData.pseudo}
-                            onChangeText={(val) => setFormData({...formData, pseudo: val})}
+                            placeholder="Nom complet"
+                            value={formData.fullname}
+                            onChangeText={(val) => setFormData({...formData, fullname: val})}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Nom d'utilisateur (min. 5 caractères)"
+                            value={formData.username}
+                            onChangeText={(val) => setFormData({...formData, username: val})}
                         />
                         <TextInput
                             style={styles.input}
@@ -80,7 +112,7 @@ export default function Signup() {
                             onChangeText={(val) => setFormData({...formData, confirmPassword: val})}
                             secureTextEntry
                         />
-                        <TouchableOpacity style={styles.button} onPress={() => setStep(2)}>
+                        <TouchableOpacity style={styles.button} onPress={handleNextFromStep1}>
                             <Text style={styles.buttonText}>Suivant</Text>
                         </TouchableOpacity>
                     </>
@@ -110,11 +142,7 @@ export default function Signup() {
                                 </TouchableOpacity>
                             ))}
                         </View>
-                        <TouchableOpacity
-                            style={[styles.button, formData.favoriteGenres.length < 3 && styles.buttonDisabled]}
-                            onPress={() => setStep(3)}
-                            disabled={formData.favoriteGenres.length < 3}
-                        >
+                        <TouchableOpacity style={styles.button} onPress={handleNextFromStep2}>
                             <Text style={styles.buttonText}>Suivant</Text>
                         </TouchableOpacity>
                     </>
@@ -123,13 +151,52 @@ export default function Signup() {
             case 3:
                 return (
                     <>
-                        <Text style={styles.title}>Ton livre préféré ?</Text>
+                        <Text style={styles.title}>Tes livres favoris</Text>
                         <TextInput
-                            style={[styles.input, {height: 80}]}
-                            placeholder="Ex: Harry Potter à l'école des sorciers"
-                            value={formData.favoriteBook}
-                            onChangeText={(val) => setFormData({...formData, favoriteBook: val})}
-                            multiline
+                            style={styles.input}
+                            placeholder="Titre du 1er livre"
+                            value={formData.firstBookTitle}
+                            onChangeText={(val) => setFormData({...formData, firstBookTitle: val})}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Auteur du 1er livre"
+                            value={formData.firstBookAuthor}
+                            onChangeText={(val) => setFormData({...formData, firstBookAuthor: val})}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Titre du 2ème livre (optionnel)"
+                            value={formData.secondBookTitle}
+                            onChangeText={(val) => setFormData({...formData, secondBookTitle: val})}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Auteur du 2ème livre (optionnel)"
+                            value={formData.secondBookAuthor}
+                            onChangeText={(val) => setFormData({...formData, secondBookAuthor: val})}
+                        />
+                        <TouchableOpacity style={styles.button} onPress={handleNextFromStep3}>
+                            <Text style={styles.buttonText}>Suivant</Text>
+                        </TouchableOpacity>
+                    </>
+                );
+
+            case 4:
+                return (
+                    <>
+                        <Text style={styles.title}>Dernières infos</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Date de naissance (ex: 1990-05-21)"
+                            value={formData.birth}
+                            onChangeText={(val) => setFormData({...formData, birth: val})}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Genre (ex: Femme, Homme, Autre)"
+                            value={formData.genre}
+                            onChangeText={(val) => setFormData({...formData, genre: val})}
                         />
                         <TouchableOpacity
                             style={styles.button}
@@ -183,6 +250,5 @@ const styles = StyleSheet.create({
     genreText: { color: '#333' },
     genreTextSelected: { color: 'white' },
     button: { backgroundColor: '#8B4A2B', borderRadius: 16, padding: 18, alignItems: 'center', marginTop: 12 },
-    buttonDisabled: { opacity: 0.5 },
     buttonText: { color: 'white', fontSize: 18, fontWeight: '600' },
 });

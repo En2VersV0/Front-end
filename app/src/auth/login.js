@@ -1,14 +1,33 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { Link } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { Link, router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
+    const [googleLoading, setGoogleLoading] = useState(false);
+
+    // TODO: Remplacer par tes vrais Client IDs Google (Console Google Cloud)
+    const GOOGLE_CONFIG = {
+        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
+        androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    };
+
+    const [request, response, promptAsync] = Google.useAuthRequest({
+        iosClientId: GOOGLE_CONFIG.iosClientId,
+        androidClientId: GOOGLE_CONFIG.androidClientId,
+        webClientId: GOOGLE_CONFIG.webClientId,
+        scopes: ['profile', 'email'],
+    });
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -22,6 +41,45 @@ export default function Login() {
             Alert.alert('Erreur', error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        const handleGoogleResponse = async () => {
+            if (response?.type === 'success' && response.authentication?.accessToken) {
+                try {
+                    setGoogleLoading(true);
+                    const res = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+                        headers: { Authorization: `Bearer ${response.authentication.accessToken}` },
+                    });
+                    const profile = await res.json();
+                    const prefillEmail = profile.email || '';
+                    const prefillName = profile.name || profile.given_name || '';
+                    router.push({ pathname: '/(auth)/signup', params: { prefillEmail, prefillName } });
+                } catch (e) {
+                    Alert.alert('Google', "Impossible de récupérer ton profil Google.");
+                } finally {
+                    setGoogleLoading(false);
+                }
+            }
+        };
+        handleGoogleResponse();
+    }, [response]);
+
+    const handleGoogleLogin = async () => {
+        // Vérifie que les Client IDs sont configurés
+        if (
+            GOOGLE_CONFIG.iosClientId.startsWith('YOUR_') ||
+            GOOGLE_CONFIG.androidClientId.startsWith('YOUR_') ||
+            GOOGLE_CONFIG.webClientId.startsWith('YOUR_')
+        ) {
+            Alert.alert('Configuration requise', "Renseigne les Client IDs Google (EXPO_PUBLIC_GOOGLE_* dans app.config ou .env) pour activer la connexion Google.");
+            return;
+        }
+        try {
+            await promptAsync();
+        } catch (e) {
+            Alert.alert('Google', 'La connexion Google a échoué.');
         }
     };
 
@@ -57,6 +115,18 @@ export default function Login() {
                     <ActivityIndicator color="white" />
                 ) : (
                     <Text style={styles.buttonText}>Se connecter</Text>
+                )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[styles.button, styles.googleButton]}
+                onPress={handleGoogleLogin}
+                disabled={googleLoading}
+            >
+                {googleLoading ? (
+                    <ActivityIndicator color="#5A2B18" />
+                ) : (
+                    <Text style={styles.googleButtonText}>Continuer avec Google</Text>
                 )}
             </TouchableOpacity>
 
@@ -101,8 +171,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 12,
     },
+    googleButton: {
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#8B4A2B',
+    },
     buttonText: {
         color: 'white',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    googleButtonText: {
+        color: '#8B4A2B',
         fontSize: 18,
         fontWeight: '600',
     },

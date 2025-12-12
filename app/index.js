@@ -10,9 +10,6 @@ export default function Home() {
       <Link href="/src/screens/Search/Search" asChild>
         <Text>Searchpage</Text>
       </Link>
-      <Link href="/src/screens/Profile/Profile">
-      <Text>Profile</Text>
-      </Link>
 
     </View>
   );
